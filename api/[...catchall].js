@@ -30,13 +30,13 @@ export default async function handler(req, res) {
 
     // Extract the path after /api/
     let userQuery = req.url.replace(/^\/api\//, '') || "default";
-    
+
     // Remove any trailing slashes
     userQuery = userQuery.replace(/\/$/, '') || "default";
-    
+
     // Parse fields parameter for response customization
     const fields = req.query.fields;
-    
+
     console.log('Processing endpoint:', userQuery);
     if (fields) {
       console.log('Requested fields:', fields);
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
     // Build user prompt
     let userPrompt = `Create a JSON response for the endpoint: ${userQuery}`;
-    
+
     if (fields) {
       userPrompt += ` with the following fields: ${fields}`;
     }
@@ -65,11 +65,11 @@ export default async function handler(req, res) {
     let completion;
     let retryCount = 0;
     const maxRetries = 2;
-    
+
     while (retryCount <= maxRetries) {
       try {
         completion = await openai.chat.completions.create({
-          model: "gpt-4.1-mini",
+          model: "gpt-5-nano",
           messages: [
             {
               role: "system",
@@ -87,7 +87,7 @@ export default async function handler(req, res) {
         break; // Success, exit retry loop
       } catch (openaiError) {
         console.error(`OpenAI API call failed (attempt ${retryCount + 1}):`, openaiError);
-        
+
         // Handle specific OpenAI errors that shouldn't be retried
         if (openaiError.status === 429) {
           return res.status(429).json({
@@ -96,7 +96,7 @@ export default async function handler(req, res) {
             endpoint: userQuery
           });
         }
-        
+
         if (openaiError.status === 401) {
           return res.status(500).json({
             error: "UNAUTHORIZED",
@@ -104,14 +104,14 @@ export default async function handler(req, res) {
             endpoint: userQuery
           });
         }
-        
+
         // For other errors, retry if we haven't reached max retries
         retryCount++;
         if (retryCount > maxRetries) {
           // Re-throw to be caught by outer try-catch
           throw openaiError;
         }
-        
+
         // Wait briefly before retrying (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 100));
       }
